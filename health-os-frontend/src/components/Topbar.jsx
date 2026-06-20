@@ -10,7 +10,8 @@ export default function Topbar({ onMenuClick }) {
     refreshData,
     loading,
     representingProvider,
-    setRepresentingProvider
+    setRepresentingProvider,
+    setActivePage
   } = useApp();
 
   return (
@@ -82,7 +83,7 @@ export default function Topbar({ onMenuClick }) {
           <span>Verified</span>
         </div>
 
-        <div className="user-chip" title={patientName}>
+        <div className="user-chip" title={patientName} onClick={() => setActivePage('profile')} style={{ cursor: 'pointer' }}>
           {patientName.charAt(0)}
         </div>
       </div>

@@ -55,13 +55,9 @@ export default function Sidebar({ activePage, navigate, isOpen, onClose }) {
       </div>
 
       <div className="sb-footer">
-        <button className="sb-nav-item">
+        <button className={`sb-nav-item ${activePage === 'profile' ? 'active' : ''}`} onClick={() => navigate('profile')}>
           <Lock size={15} />
           <span className="nav-label">Security Settings</span>
-        </button>
-        <button className="sb-nav-item">
-          <HelpCircle size={15} />
-          <span className="nav-label">Support</span>
         </button>
       </div>
     </aside>

@@ -117,7 +117,7 @@ export default function ConsentPage() {
         </div>
       )}
 
-      {pending.length > 0 && (
+      {activeRole === 'Patient' && pending.length > 0 && (
         <div style={{ marginBottom: 32 }}>
           <div className="section-label">Pending Authorization Requests ({pending.length})</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16 }}>
@@ -146,14 +146,20 @@ export default function ConsentPage() {
                   </div>
                 </div>
                 <div className="consent-btns">
-                  <button className="btn-auth" onClick={() => signConsent(c.id, c.requester_name)} disabled={loading}>
-                    <ShieldCheck size={14} />
-                    Authorize
-                  </button>
-                  <button className="btn-deny" onClick={() => revokeConsent(c.id)} disabled={loading}>
-                    <X size={14} />
-                    Deny
-                  </button>
+                  {activeRole === 'Auditor' ? (
+                    <span className="badge badge-pending" style={{ gridColumn: 'span 2', textAlign: 'center', display: 'block', padding: '8px 12px' }}>Awaiting Signature</span>
+                  ) : (
+                    <>
+                      <button className="btn-auth" onClick={() => signConsent(c.id, c.requester_name)} disabled={loading}>
+                        <ShieldCheck size={14} />
+                        Authorize
+                      </button>
+                      <button className="btn-deny" onClick={() => revokeConsent(c.id)} disabled={loading}>
+                        <X size={14} />
+                        Deny
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             ))}
@@ -164,7 +170,7 @@ export default function ConsentPage() {
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <div className="section-label" style={{ marginBottom: 0 }}>Active Consents</div>
-          {approved.length > 0 && (
+          {activeRole !== 'Auditor' && approved.length > 0 && (
             <button
               onClick={() => approved.forEach(c => revokeConsent(c.id))}
               style={{ background: 'transparent', border: 'none', color: 'var(--error)', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}
@@ -210,13 +216,19 @@ export default function ConsentPage() {
                 </div>
                 <div className="acr-actions">
                   <button className="btn-icon"><Settings size={16} /></button>
-                  {c.status === 'approved' && (
-                    <button className="btn btn-danger" style={{ padding: '6px 12px', fontSize: 11 }} onClick={() => revokeConsent(c.id)} disabled={loading}>Revoke</button>
-                  )}
-                  {(c.status === 'pending' || c.status === 'revoked') && (
-                    <button className="btn btn-teal" style={{ padding: '6px 12px', fontSize: 11 }} onClick={() => signConsent(c.id, c.requester_name)} disabled={loading}>
-                      {c.status === 'revoked' ? 'Re-Auth' : 'Sign & Grant'}
-                    </button>
+                  {activeRole === 'Auditor' ? (
+                    <span className={`badge badge-${c.status}`} style={{ padding: '6px 12px' }}>{c.status}</span>
+                  ) : (
+                    <>
+                      {c.status === 'approved' && (
+                        <button className="btn btn-danger" style={{ padding: '6px 12px', fontSize: 11 }} onClick={() => revokeConsent(c.id)} disabled={loading}>Revoke</button>
+                      )}
+                      {(c.status === 'pending' || c.status === 'revoked') && (
+                        <button className="btn btn-teal" style={{ padding: '6px 12px', fontSize: 11 }} onClick={() => signConsent(c.id, c.requester_name)} disabled={loading}>
+                          {c.status === 'revoked' ? 'Re-Auth' : 'Sign & Grant'}
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

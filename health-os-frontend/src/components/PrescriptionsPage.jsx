@@ -13,6 +13,7 @@ export default function PrescriptionsPage() {
     representingProvider,
     accessDenied,
     safetyReport,
+    logs,
     loading
   } = useApp();
 
@@ -146,11 +147,14 @@ export default function PrescriptionsPage() {
         <div className="grid">
           <div className="g8 card scan">
             <div className="card-hd">
-              <span className="card-hd-title"><Pill size={16} style={{ marginRight: 6 }} />Active Medications</span>
+              <span className="card-hd-title">
+                <Pill size={16} style={{ marginRight: 6 }} />
+                {activeRole === 'Auditor' ? 'Compliance Audit Ledger' : 'Active Medications'}
+              </span>
               <span className="badge badge-verified">Verified Ledger</span>
             </div>
             <div>
-              {!isDecrypted ? (
+              {!isDecrypted && activeRole !== 'Auditor' ? (
                 <div style={{ padding: 24 }}>
                   <div className="vault-locked-banner">
                     <Lock size={16} style={{ marginRight: 8, flexShrink: 0 }} />
@@ -221,84 +225,112 @@ export default function PrescriptionsPage() {
                       );
                     })
                   )}
-                  <div style={{ padding: '12px 24px', borderTop: '1px solid var(--outline-variant)' }}>
-                    <button
-                      onClick={() => { setIsDecrypted(false); setPrivateKey(''); }}
-                      className="btn btn-outline"
-                    >
-                      <Lock size={14} style={{ marginRight: 6 }} />
-                      Lock Vault
-                    </button>
-                  </div>
+                  {activeRole === 'Patient' && (
+                    <div style={{ padding: '12px 24px', borderTop: '1px solid var(--outline-variant)' }}>
+                      <button
+                        onClick={() => { setIsDecrypted(false); setPrivateKey(''); }}
+                        className="btn btn-outline"
+                      >
+                        <Lock size={14} style={{ marginRight: 6 }} />
+                        Lock Vault
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           </div>
 
           <div className="g4" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div className="card-teal" style={{ position: 'relative' }}>
-              <div style={{ position: 'absolute', top: 16, right: 16, opacity: 0.08 }}>
-                <Pill size={80} />
-              </div>
-              <div style={{ position: 'relative', zIndex: 1 }}>
-                <div className="section-label" style={{ color: 'rgba(134,242,228,0.7)', marginBottom: 14 }}>AI Clinical Safety Agent</div>
-                <p style={{ fontSize: 13, opacity: 0.75, marginBottom: 20, lineHeight: 1.6 }}>
-                  Real-time cross-referencing of your medical ledger against global drug databases and genetic markers.
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {safetyReport?.warnings?.slice(0, 2).map((w, i) => (
-                    <div key={i} className="ai-alert amber">
-                      <div className="ai-alert-ico">
-                        <AlertTriangle size={16} />
-                      </div>
-                      <div>
-                        <div className="ai-alert-tag">{w.severity} Warning</div>
-                        <div className="ai-alert-title">{w.type}</div>
-                        <div className="ai-alert-body">{w.message}</div>
-                      </div>
-                    </div>
-                  ))}
-                  {(!safetyReport?.warnings || safetyReport.warnings.length === 0) && (
-                    <div className="ai-alert green">
-                      <div className="ai-alert-ico">
-                        <CheckCircle2 size={16} />
-                      </div>
-                      <div>
-                        <div className="ai-alert-tag">System Clear</div>
-                        <div className="ai-alert-title">Allergy Conflict Scan</div>
-                        <div className="ai-alert-body">No active clinical contradictions found.</div>
-                      </div>
-                    </div>
-                  )}
+            {activeRole === 'Auditor' ? (
+              <div className="card-dark">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+                  <ShieldCheck size={28} style={{ opacity: 0.8 }} />
+                  <span style={{ fontFamily: 'var(--mono)', fontSize: 12, opacity: 0.4 }}>AUDIT ACCESS: ACTIVE</span>
                 </div>
-                <button
-                  onClick={() => alert('Redirecting to Full Interaction Report')}
-                  style={{ width: '100%', marginTop: 16, background: '#006a61', border: 'none', color: '#fff', padding: '10px', borderRadius: 8, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', cursor: 'pointer' }}
-                >
-                  View Full Interaction Report
-                </button>
+                <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>Health-OS Clinical Agent</div>
+                <div style={{ fontSize: 13, opacity: 0.7 }}>Sovereign Audit Key Authorized</div>
+
+                <div style={{ marginTop: 20, background: 'rgba(255,255,255,0.1)', borderRadius: 8, padding: '12px 14px', border: '1px solid rgba(255,255,255,0.15)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Audit Protocol</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, background: '#86f2e4', color: '#006f66', padding: '2px 8px', borderRadius: 4 }}>SYSTEM-LEVEL</span>
+                  </div>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="card-teal" style={{ position: 'relative' }}>
+                <div style={{ position: 'absolute', top: 16, right: 16, opacity: 0.08 }}>
+                  <Pill size={80} />
+                </div>
+                <div style={{ position: 'relative', zIndex: 1 }}>
+                  <div className="section-label" style={{ color: 'rgba(134,242,228,0.7)', marginBottom: 14 }}>AI Clinical Safety Agent</div>
+                  <p style={{ fontSize: 13, opacity: 0.75, marginBottom: 20, lineHeight: 1.6 }}>
+                    Real-time cross-referencing of your medical ledger against global drug databases and genetic markers.
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {safetyReport?.warnings?.slice(0, 2).map((w, i) => (
+                      <div key={i} className="ai-alert amber">
+                        <div className="ai-alert-ico">
+                          <AlertTriangle size={16} />
+                        </div>
+                        <div>
+                          <div className="ai-alert-tag">{w.severity} Warning</div>
+                          <div className="ai-alert-title">{w.type}</div>
+                          <div className="ai-alert-body">{w.message}</div>
+                        </div>
+                      </div>
+                    ))}
+                    {(!safetyReport?.warnings || safetyReport.warnings.length === 0) && (
+                      <div className="ai-alert green">
+                        <div className="ai-alert-ico">
+                          <CheckCircle2 size={16} />
+                        </div>
+                        <div>
+                          <div className="ai-alert-tag">System Clear</div>
+                          <div className="ai-alert-title">Allergy Conflict Scan</div>
+                          <div className="ai-alert-body">No active clinical contradictions found.</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => alert('Redirecting to Full Interaction Report')}
+                    style={{ width: '100%', marginTop: 16, background: '#006a61', border: 'none', color: '#fff', padding: '10px', borderRadius: 8, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', cursor: 'pointer' }}
+                  >
+                    View Full Interaction Report
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="card-p">
               <div className="section-label">Signature-Verified Access Log</div>
               <p style={{ fontSize: 13, color: 'var(--on-surface-variant)', marginBottom: 14 }}>Immutable record of cryptographic authorization.</p>
               <div>
-                {[
-                  { entity: 'Pharmacy #402', sig: 'ed25519_sig...v42', action: 'Verify Prescription', time: '10m ago' },
-                  { entity: 'City General', sig: 'rsa4096_sig...m91', action: 'Full Audit Access', time: '4h ago' },
-                  { entity: 'Health-OS Agent', sig: 'Internal Protocol', action: 'Safety Audit', time: 'Continuous' },
-                ].map((l, i) => (
-                  <div className="log-row" key={i}>
-                    <div className="log-ico"><Pill size={14} /></div>
-                    <div style={{ flex: 1 }}>
-                      <div className="log-entity">{l.entity}</div>
-                      <div className="log-sig">Sig: <code>{l.sig}</code></div>
-                      <span className="log-action">{l.action}</span>
-                    </div>
-                    <div className="log-time">{l.time}</div>
-                  </div>
-                ))}
+                {logs.length === 0 ? (
+                  <p style={{ fontSize: 12, color: 'var(--outline)', padding: '10px 0' }}>No access events logged.</p>
+                ) : (
+                  logs.slice(0, 3).map((log, i) => {
+                    const cryptoType = log.user_role === 'SYSTEM' || log.user_role === 'System' ? 'Internal' : 'SHA256';
+                    const fakeHash = btoa(log.user_role + log.id + log.description).slice(0, 8).toLowerCase();
+                    const sigString = cryptoType === 'Internal' ? 'kernel_level_trust' : `sha256_sig...${fakeHash}`;
+                    
+                    return (
+                      <div className="log-row" key={log.id || i}>
+                        <div className="log-ico"><Pill size={14} /></div>
+                        <div style={{ flex: 1 }}>
+                          <div className="log-entity">{log.user_role}</div>
+                          <div className="log-sig">Sig: <code>{sigString}</code></div>
+                          <span className="log-action">{log.description}</span>
+                        </div>
+                        <div className="log-time">
+                          {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>

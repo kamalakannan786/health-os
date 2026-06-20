@@ -38,6 +38,16 @@ CREATE TABLE IF NOT EXISTS access_logs (
     description TEXT NOT NULL,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS lab_reports (
+    id SERIAL PRIMARY KEY,
+    patient_id INT REFERENCES patients(id) ON DELETE CASCADE,
+    label TEXT NOT NULL,
+    value TEXT NOT NULL,
+    unit TEXT NOT NULL,
+    status TEXT NOT NULL,
+    report_date TEXT NOT NULL
+);
 """
 
 async def main():

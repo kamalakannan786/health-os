@@ -6,7 +6,7 @@ const AppContext = createContext();
 export function AppProvider({ children }) {
   const [activeRole, setActiveRole] = useState('Patient');
   const [activePatientId] = useState(1);
-  const [patientName] = useState('Alice Smith');
+  const [patientName, setPatientName] = useState('Alice Smith');
   const [publicKey] = useState('VORTEXA_PUB_ALICE_12345');
   const [privateKey, setPrivateKey] = useState('');
   const [prescriptions, setPrescriptions] = useState([]);
@@ -21,21 +21,29 @@ export function AppProvider({ children }) {
   const [lastRefresh, setLastRefresh] = useState(null);
   const [representingProvider, setRepresentingProvider] = useState('City General Hospital');
   const [accessDenied, setAccessDenied] = useState(false);
+  const [allergies, setAllergies] = useState([]);
+  const [activePage, setActivePage] = useState('vault');
+  const [labReports, setLabReports] = useState([]);
 
   const refreshData = useCallback(async (role = activeRole, provider = representingProvider) => {
     setErrorMsg('');
     setAccessDenied(false);
     try {
-      const [logsData, consentData, safetyData, fraudData] = await Promise.all([
+      const [logsData, consentData, safetyData, fraudData, patientData, labData] = await Promise.all([
         api.getLogs(),
         api.getConsents(activePatientId),
         api.getSafetyAnalysis(activePatientId),
         api.getFraudAnalysis(activePatientId),
+        api.getPatient(activePatientId),
+        api.getLabReports(activePatientId),
       ]);
       setLogs(logsData);
       setConsents(consentData);
       setSafetyReport(safetyData);
       setFraudReport(fraudData);
+      setPatientName(patientData.full_name);
+      setAllergies(patientData.allergies || []);
+      setLabReports(labData || []);
       setLastRefresh(new Date());
 
       try {
@@ -54,6 +62,18 @@ export function AppProvider({ children }) {
       setErrorMsg('Backend unreachable. Ensure the FastAPI server is running.');
     }
   }, [activePatientId, activeRole, representingProvider]);
+
+  const updatePatientProfile = async (name, newAllergies) => {
+    setLoading(true);
+    try {
+      await api.updatePatient(activePatientId, { full_name: name, allergies: newAllergies });
+      await refreshData();
+    } catch {
+      setErrorMsg('Failed to update patient profile details');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     const init = async () => {
@@ -75,10 +95,10 @@ export function AppProvider({ children }) {
   useEffect(() => {
     if (seeding) return;
     const interval = setInterval(() => {
-      api.getLogs().then(setLogs).catch(() => {});
-    }, 10000);
+      refreshData(activeRole, representingProvider);
+    }, 3000);
     return () => clearInterval(interval);
-  }, [seeding]);
+  }, [seeding, activeRole, representingProvider, refreshData]);
 
   const signConsent = async (consentId, requester) => {
     try {
@@ -146,15 +166,16 @@ export function AppProvider({ children }) {
 
   return (
     <AppContext.Provider value={{
+      activePage, setActivePage,
       activeRole, setActiveRole,
       activePatientId, patientName, publicKey,
       privateKey, setPrivateKey,
-      prescriptions, consents, logs,
+      prescriptions, consents, logs, labReports,
       isDecrypted, setIsDecrypted,
       safetyReport, fraudReport,
       loading, seeding, errorMsg, setErrorMsg,
       lastRefresh, representingProvider, setRepresentingProvider,
-      accessDenied, setAccessDenied,
+      accessDenied, setAccessDenied, allergies, updatePatientProfile,
       refreshData, signConsent, revokeConsent,
       requestNewConsent, createNewPrescription, resetDB
     }}>

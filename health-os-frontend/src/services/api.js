@@ -28,3 +28,7 @@ export const requestConsent      = (id, name)       => req('/consents', { method
 export const updateConsent       = (id, status, sig) => req(`/consents/${id}`, { method: 'PUT', body: JSON.stringify({ status, digital_signature: sig || null }) });
 export const getSafetyAnalysis   = (id)             => req(`/ai/safety/${id}`);
 export const getFraudAnalysis    = (id)             => req(`/ai/fraud/${id}`);
+export const getPatient          = (id)             => req(`/patients/${id}`);
+export const updatePatient       = (id, data)       => req(`/patients/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const getLabReports       = (id)             => req(`/patients/${id}/lab-reports`);
+

@@ -42,7 +42,7 @@ async def get_logs():
 @app.post("/api/seed")
 async def seed_database():
     async with db.pool.acquire() as conn:
-        await conn.execute("TRUNCATE access_logs, consents, prescriptions, patients RESTART IDENTITY CASCADE")
+        await conn.execute("TRUNCATE access_logs, consents, prescriptions, patients, lab_reports RESTART IDENTITY CASCADE")
         
         await conn.execute(
             """
@@ -57,6 +57,15 @@ async def seed_database():
             VALUES 
             (1, 'Dr. Robert Chen', 'Lisinopril', '10mg daily', 'VORTEXA_ENC:S0V5OlZPUlRFWEFfUFVCX0FMSUNFXzEyMzQ1fERBVEE6TGlzaW5vcHJpbCAxMG1nIGRhaWx5IGZvciBoeXBlcnRlbnNpb24='),
             (1, 'Dr. Sarah Jenkins', 'Lipitor', '20mg at bedtime', 'VORTEXA_ENC:S0V5OlZPUlRFWEFfUFVCX0FMSUNFXzEyMzQ1fERBVEE6TGlwaXRvciAyMG1nIGF0IGJlZHRpbWUgZm9yIGNob2xlc3Rlcm9s')
+            """
+        )
+
+        await conn.execute(
+            """
+            INSERT INTO lab_reports (patient_id, label, value, unit, status, report_date)
+            VALUES 
+            (1, 'Comprehensive Metabolic', '94', 'mg/dL (Glucose)', 'Verified', 'Oct 14, 2023 • LabCorp'),
+            (1, 'Lipid Profile', '182', 'mg/dL (Total Chol)', 'Verified', 'Sep 28, 2023 • Quest')
             """
         )
         
@@ -81,6 +90,69 @@ async def seed_database():
             """
         )
         return {"status": "success", "message": "Database seeded successfully"}
+
+from pydantic import BaseModel
+from typing import List
+
+class PatientUpdate(BaseModel):
+    full_name: str
+    allergies: List[str]
+
+@app.get("/api/patients/{patient_id}")
+async def get_patient(patient_id: int):
+    async with db.pool.acquire() as conn:
+        patient = await conn.fetchrow("SELECT id, public_key, full_name, allergies FROM patients WHERE id = $1", patient_id)
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        return {
+            "id": patient["id"],
+            "public_key": patient["public_key"],
+            "full_name": patient["full_name"],
+            "allergies": patient["allergies"]
+        }
+
+@app.put("/api/patients/{patient_id}")
+async def update_patient(patient_id: int, update: PatientUpdate):
+    async with db.pool.acquire() as conn:
+        patient = await conn.fetchrow("SELECT id FROM patients WHERE id = $1", patient_id)
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        await conn.execute(
+            """
+            UPDATE patients 
+            SET full_name = $1, allergies = $2
+            WHERE id = $3
+            """,
+            update.full_name, update.allergies, patient_id
+        )
+        
+        await conn.execute(
+            "INSERT INTO access_logs (user_role, description) VALUES ($1, $2)",
+            "Patient", f"Updated patient profile details (ID: {patient_id})"
+        )
+        return {"status": "success"}
+
+@app.get("/api/patients/{patient_id}/lab-reports")
+async def get_lab_reports(patient_id: int):
+    async with db.pool.acquire() as conn:
+        records = await conn.fetch(
+            "SELECT id, label, value, unit, status, report_date FROM lab_reports WHERE patient_id = $1 ORDER BY id ASC",
+            patient_id
+        )
+        return [
+            {
+                "id": r["id"],
+                "label": r["label"],
+                "value": r["value"],
+                "unit": r["unit"],
+                "status": r["status"],
+                "date": r["report_date"]
+            }
+            for r in records
+        ]
+
+
 
 if __name__ == "__main__":
     import uvicorn

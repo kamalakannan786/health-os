@@ -7,11 +7,11 @@ import PrescriptionsPage from './components/PrescriptionsPage';
 import ConsentPage from './components/ConsentPage';
 import InsightsPage from './components/InsightsPage';
 import SimulatorConsole from './components/SimulatorConsole';
+import ProfilePage from './components/ProfilePage';
 
 function MainLayout() {
-  const [activePage, setActivePage] = useState('vault');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { seeding, errorMsg, setErrorMsg } = useApp();
+  const { activePage, setActivePage, seeding, errorMsg, setErrorMsg } = useApp();
 
   const closeSidebar = () => setSidebarOpen(false);
   const navigate = (page) => { setActivePage(page); closeSidebar(); };
@@ -49,21 +49,15 @@ function MainLayout() {
             </div>
           )}
 
-          {activePage === 'vault'         && <VaultDashboard />}
+           {activePage === 'vault'         && <VaultDashboard />}
           {activePage === 'prescriptions' && <PrescriptionsPage />}
           {activePage === 'consent'       && <ConsentPage />}
           {activePage === 'insights'      && <InsightsPage />}
           {activePage === 'simulator'     && <SimulatorConsole />}
+          {activePage === 'profile'       && <ProfilePage />}
         </div>
 
-        <footer className="main-footer">
-          <span className="footer-node">HOS-LEDGER-V4.02 · SHARD-AP-SOUTH-1</span>
-          <div className="footer-links">
-            <button className="footer-link">Privacy Charter</button>
-            <button className="footer-link">Safety Methodology</button>
-            <button className="footer-link">API Docs</button>
-          </div>
-        </footer>
+
       </div>
     </div>
   );

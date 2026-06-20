@@ -1,13 +1,17 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { Fingerprint, CheckCircle2, Key, Eye, RefreshCw, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Fingerprint, CheckCircle2, Key, Eye, RefreshCw, AlertTriangle, ShieldCheck, Lock } from 'lucide-react';
 
 export default function VaultDashboard() {
-  const { patientName, publicKey, prescriptions, consents, logs } = useApp();
+  const { activeRole, patientName, publicKey, prescriptions, consents, logs, isDecrypted, refreshData, allergies, labReports, setActivePage } = useApp();
 
   const approvedConsents = consents.filter(c => c.status === 'approved').length;
   const integrity = prescriptions.length > 0 ? '99.9%' : '—';
   const recentLogs = logs.slice(0, 3);
+
+  React.useEffect(() => {
+    refreshData();
+  }, [activeRole, refreshData]);
 
   return (
     <div className="page-in">
@@ -15,7 +19,9 @@ export default function VaultDashboard() {
         <div>
           <h1 className="page-hd-title">Patient Health Vault</h1>
           <p className="page-hd-sub">
-            Welcome back, {patientName}. Your sovereign health data is end-to-end encrypted and active across {approvedConsents} verified institutions.
+            {activeRole === 'Auditor'
+              ? `Compliance audit session active. Verifying ledger integrity and cryptographic signature validation logs.`
+              : `Welcome back, {patientName}. Your sovereign health data is end-to-end encrypted and active across ${approvedConsents} verified institutions.`}
           </p>
         </div>
         <div className="page-hd-right">
@@ -67,19 +73,39 @@ export default function VaultDashboard() {
         </div>
 
         <div className="g4 card-dark">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-            <Key size={28} style={{ opacity: 0.8 }} />
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 12, opacity: 0.4 }}>H-OS ID: 881-22-LX</span>
-          </div>
-          <div style={{ fontSize: 24, fontWeight: 600, marginBottom: 4 }}>{patientName}</div>
-          <div style={{ fontSize: 14, opacity: 0.7 }}>Sovereign Identity Key Active</div>
+          {activeRole === 'Auditor' ? (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+                <ShieldCheck size={28} style={{ opacity: 0.8 }} />
+                <span style={{ fontFamily: 'var(--mono)', fontSize: 12, opacity: 0.4 }}>AUDITOR KEY: ACTIVE</span>
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 4 }}>Health-OS Audit Agent</div>
+              <div style={{ fontSize: 14, opacity: 0.7 }}>Sovereign Audit Access Level</div>
 
-          <div style={{ marginTop: 20, background: 'rgba(255,255,255,0.1)', borderRadius: 8, padding: '12px 14px', border: '1px solid rgba(255,255,255,0.15)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Vault Encryption</span>
-              <span style={{ fontSize: 11, fontWeight: 700, background: '#86f2e4', color: '#006f66', padding: '2px 8px', borderRadius: 4 }}>AES-256</span>
-            </div>
-          </div>
+              <div style={{ marginTop: 20, background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '12px 14px', border: '1px solid rgba(255,255,255,0.12)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Audit Channel</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, background: '#86f2e4', color: '#006f66', padding: '2px 8px', borderRadius: 4 }}>VERIFIED</span>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+                <Key size={28} style={{ opacity: 0.8 }} />
+                <span style={{ fontFamily: 'var(--mono)', fontSize: 12, opacity: 0.4 }}>H-OS ID: 881-22-LX</span>
+              </div>
+              <div style={{ fontSize: 24, fontWeight: 600, marginBottom: 4 }}>{patientName}</div>
+              <div style={{ fontSize: 14, opacity: 0.7 }}>Sovereign Identity Key Active</div>
+
+              <div style={{ marginTop: 20, background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '12px 14px', border: '1px solid rgba(255,255,255,0.12)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Vault Encryption</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, background: '#86f2e4', color: '#006f66', padding: '2px 8px', borderRadius: 4 }}>AES-256</span>
+                </div>
+              </div>
+            </>
+          )}
 
           <div style={{ position: 'absolute', bottom: -24, right: -24, width: 120, height: 120, background: 'rgba(134,242,228,0.12)', borderRadius: '50%', filter: 'blur(32px)' }}></div>
         </div>
@@ -95,16 +121,27 @@ export default function VaultDashboard() {
                 <span className="empty-state-title">No prescriptions on file.</span>
               </div>
             ) : (
-              prescriptions.slice(0, 3).map(rx => (
-                <div className="rx-row" key={rx.id}>
-                  <div className="rx-row-top">
-                    <span className="rx-name">{rx.medication_name} — {rx.dosage}</span>
-                    <div className="rx-check"><CheckCircle2 size={14} /></div>
+              prescriptions.slice(0, 3).map(rx => {
+                const isLocked = !isDecrypted && activeRole === 'Patient';
+                return (
+                  <div className="rx-row" key={rx.id}>
+                    <div className="rx-row-top">
+                      <span className="rx-name">
+                        {isLocked
+                          ? `VORTEXA_ENC:${btoa(rx.medication_name).slice(0, 8)}...`
+                          : `${rx.medication_name} — ${rx.dosage}`}
+                      </span>
+                      <div className="rx-check">
+                        {isLocked ? <Lock size={12} style={{ color: 'var(--outline)' }} /> : <CheckCircle2 size={14} />}
+                      </div>
+                    </div>
+                    <div className="rx-who">
+                      {isLocked ? 'Hardware Sealed' : rx.prescriber}
+                    </div>
+                    <code className="rx-hash-val">Hash: {btoa(rx.medication_name).slice(0, 8)}...</code>
                   </div>
-                  <div className="rx-who">{rx.prescriber}</div>
-                  <code className="rx-hash-val">Hash: {btoa(rx.medication_name).slice(0, 8)}...{btoa(rx.dosage).slice(0, 4)}</code>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -113,22 +150,25 @@ export default function VaultDashboard() {
           <div className="card-hd">
             <span className="card-hd-title"><ShieldCheck size={16} />Lab Reports</span>
           </div>
-          {[
-            { label: 'Comprehensive Metabolic', value: '94', unit: 'mg/dL (Glucose)', status: 'Verified', date: 'Oct 14, 2023 • LabCorp' },
-            { label: 'Lipid Profile', value: '182', unit: 'mg/dL (Total Chol)', status: 'Verified', date: 'Sep 28, 2023 • Quest' },
-          ].map((lab, i) => (
-            <div key={i} style={{ padding: '14px 16px', borderBottom: i === 0 ? '1px solid var(--outline-variant)' : 'none' }}>
-              <div style={{ display: 'flex', justifycontent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{lab.label}</span>
-                <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--secondary)' }}>{lab.status}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                <span style={{ fontSize: 24, fontWeight: 700 }}>{lab.value}</span>
-                <span style={{ fontSize: 13, color: 'var(--outline)' }}>{lab.unit}</span>
-              </div>
-              <div style={{ fontSize: 10, color: 'var(--outline-variant)', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{lab.date}</div>
+          {labReports.length === 0 ? (
+            <div className="empty-state">
+              <span className="empty-state-title">No lab reports on file.</span>
             </div>
-          ))}
+          ) : (
+            labReports.map((lab, i) => (
+              <div key={lab.id || i} style={{ padding: '14px 16px', borderBottom: i < labReports.length - 1 ? '1px solid var(--outline-variant)' : 'none' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{lab.label}</span>
+                  <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--secondary)' }}>{lab.status}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                  <span style={{ fontSize: 24, fontWeight: 700 }}>{lab.value}</span>
+                  <span style={{ fontSize: 13, color: 'var(--outline)' }}>{lab.unit}</span>
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--outline-variant)', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{lab.date}</div>
+              </div>
+            ))
+          )}
         </div>
 
         <div className="g4 card">
@@ -166,17 +206,23 @@ export default function VaultDashboard() {
               <AlertTriangle size={18} />
             </div>
             <h4 style={{ fontSize: 16, fontWeight: 700, marginRight: 12 }}>Clinical Alerts</h4>
-            {[
-              { name: 'Penicillin', severity: 'Severe', danger: true },
-              { name: 'Latex', severity: 'Moderate', danger: false },
-              { name: 'Tree Nuts', severity: 'Dietary', danger: false },
-            ].map(a => (
-              <div key={a.name} className={`allergy-chip ${a.danger ? 'danger' : 'normal'}`}>
-                <span className={`a-name ${a.danger ? 'danger' : 'normal'}`}>{a.name}</span>
-                <span className="a-sev">{a.severity}</span>
-              </div>
-            ))}
-            <button className="btn-ghost" style={{ marginLeft: 'auto' }}>
+            {allergies.length === 0 ? (
+              <span style={{ fontSize: 13, color: 'var(--outline)', fontStyle: 'italic' }}>No active allergy conflicts registered.</span>
+            ) : (
+              allergies.map(allergy => {
+                const nameLower = allergy.toLowerCase();
+                const isPenicillin = nameLower.includes('penicillin');
+                const severity = isPenicillin ? 'Severe' : 'Moderate';
+                const danger = isPenicillin || nameLower.includes('sulfa');
+                return (
+                  <div key={allergy} className={`allergy-chip ${danger ? 'danger' : 'normal'}`}>
+                    <span className={`a-name ${danger ? 'danger' : 'normal'}`}>{allergy}</span>
+                    <span className="a-sev">{severity}</span>
+                  </div>
+                );
+              })
+            )}
+            <button className="btn-ghost" style={{ marginLeft: 'auto' }} onClick={() => setActivePage('profile')}>
               Add Allergy +
             </button>
           </div>
