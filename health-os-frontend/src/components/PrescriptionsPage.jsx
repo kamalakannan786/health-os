@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Pill, CheckCircle2, AlertTriangle, Lock, Unlock, PlusCircle, ArrowRight } from 'lucide-react';
+import { Pill, CheckCircle2, AlertTriangle, Lock, Unlock, PlusCircle, ArrowRight, X, Activity } from 'lucide-react';
+import * as api from '../services/api';
 
 export default function PrescriptionsPage() {
   const {
     activeRole,
+    activePatientId,
     prescriptions,
     isDecrypted,
     setIsDecrypted,
@@ -23,6 +25,11 @@ export default function PrescriptionsPage() {
   const [doctor, setDoctor] = useState('');
   const [success, setSuccess] = useState('');
 
+  const [selectedMed, setSelectedMed] = useState(null);
+  const [historyReport, setHistoryReport] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState('');
+
   const handleDecrypt = (e) => {
     e.preventDefault();
     if (inputKey === 'VORTEXA_PRIV_ALICE_67890') {
@@ -40,6 +47,21 @@ export default function PrescriptionsPage() {
     setMedName(''); setDosage(''); setDoctor('');
     setSuccess('Prescription encrypted and saved to vault.');
     setTimeout(() => setSuccess(''), 4000);
+  };
+
+  const handleOpenHistory = async (medicationName) => {
+    setSelectedMed(medicationName);
+    setHistoryLoading(true);
+    setHistoryError('');
+    setHistoryReport(null);
+    try {
+      const report = await api.getHistoryReport(activePatientId || 1, medicationName);
+      setHistoryReport(report);
+    } catch (err) {
+      setHistoryError(err.message || 'Failed to generate history report.');
+    } finally {
+      setHistoryLoading(false);
+    }
   };
 
   return (
@@ -217,7 +239,7 @@ export default function PrescriptionsPage() {
                           </div>
                           <div className="med-row-foot">
                             <code className="med-hash-val">TX_HASH: 0x{btoa(rx.medication_name + rx.id).slice(0, 10)}...</code>
-                            <button className="btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => alert('Opening clinical history report...')}>
+                            <button className="btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => handleOpenHistory(rx.medication_name)}>
                               History Report <ArrowRight size={14} />
                             </button>
                           </div>
@@ -332,6 +354,64 @@ export default function PrescriptionsPage() {
                   })
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedMed && (
+        <div className="modal-overlay" onClick={() => setSelectedMed(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-hd">
+              <span className="modal-title">Clinical History Report: {selectedMed}</span>
+              <button className="modal-close" onClick={() => setSelectedMed(null)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-bd">
+              {historyLoading && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '32px 0', gap: 12 }}>
+                  <Activity className="spinning" size={32} style={{ color: 'var(--secondary)' }} />
+                  <span style={{ fontSize: 13, color: 'var(--outline)' }}>Generating safety report using local Ollama model...</span>
+                </div>
+              )}
+              {historyError && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--error)', padding: '16px', background: 'var(--error-container)', borderRadius: 8 }}>
+                  <AlertTriangle size={18} />
+                  <span style={{ fontSize: 13, fontWeight: 500 }}>{historyError}</span>
+                </div>
+              )}
+              {historyReport && (
+                <>
+                  <div>
+                    <div className="modal-item-label">Therapeutic Purpose</div>
+                    <div className="modal-item-value">{historyReport.therapeuticPurpose}</div>
+                  </div>
+                  <div>
+                    <div className="modal-item-label">Allergy Conflict Status</div>
+                    <div className="modal-item-value" style={{ fontWeight: 600, color: historyReport.allergyConflictStatus.toLowerCase().includes('clear') ? 'var(--secondary)' : 'var(--error)' }}>
+                      {historyReport.allergyConflictStatus}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="modal-item-label">Clinical Guideline Check</div>
+                    <div className="modal-item-value">{historyReport.clinicalGuidelineCheck}</div>
+                  </div>
+                  <div>
+                    <div className="modal-item-label">Recommendations</div>
+                    <ul style={{ paddingLeft: 18, marginTop: 4, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {historyReport.recommendations && historyReport.recommendations.map((rec, i) => (
+                        <li key={i} className="modal-item-value" style={{ listStyleType: 'disc' }}>{rec}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="modal-ft">
+              <button className="btn btn-outline" style={{ padding: '8px 16px' }} onClick={() => setSelectedMed(null)}>
+                Close
+              </button>
             </div>
           </div>
         </div>

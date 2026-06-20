@@ -31,4 +31,5 @@ export const getFraudAnalysis    = (id)             => req(`/ai/fraud/${id}`);
 export const getPatient          = (id)             => req(`/patients/${id}`);
 export const updatePatient       = (id, data)       => req(`/patients/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 export const getLabReports       = (id)             => req(`/patients/${id}/lab-reports`);
+export const getHistoryReport    = (id, med)        => req(`/ai/history?patient_id=${id}&medication=${encodeURIComponent(med)}`);
 

@@ -17,7 +17,12 @@ async def query_ollama(prompt: str) -> dict:
                     "model": MODEL_NAME,
                     "prompt": prompt,
                     "format": "json",
-                    "stream": False
+                    "stream": False,
+                    "options": {
+                        "temperature": 0.0,
+                        "num_predict": 256,
+                        "num_ctx": 1024
+                    }
                 }
             )
             if response.status_code != 200:
@@ -140,4 +145,72 @@ def run_local_fraud_fallback(prescriptions: list) -> dict:
         "fraudScore": 5 if not anomalies else min(95, len(anomalies) * 25),
         "anomalies": anomalies,
         "verdict": "Flagged" if has_high else ("Suspicious" if anomalies else "Clear")
+    }
+
+async def generate_history_report(medication: str, patient_name: str, allergies: list, prescriptions: list) -> dict:
+    prompt = f"""
+    Generate a clinical history report for patient {patient_name} regarding their prescription of {medication}.
+    Patient Allergies: {json.dumps(allergies)}
+    Prescription History for this drug: {json.dumps(prescriptions)}
+
+    Identify the therapeutic purpose, check for any dosage escalations or safety conflicts with active allergies, and provide a clinical guideline check.
+    Return ONLY a JSON object with this exact structure:
+    {{
+      "medication": "{medication}",
+      "patientName": "{patient_name}",
+      "therapeuticPurpose": "Description of what this drug is for",
+      "allergyConflictStatus": "Clear" or "Conflict found (details)",
+      "clinicalGuidelineCheck": "Summary of guideline recommendations for this class",
+      "recommendations": [
+        "Patient recommendation 1",
+        "Patient recommendation 2"
+      ]
+    }}
+    """
+    res = await query_ollama(prompt)
+    if res.get("is_fallback"):
+        return run_local_history_fallback(medication, patient_name, allergies, prescriptions)
+    return res
+
+def run_local_history_fallback(medication: str, patient_name: str, allergies: list, prescriptions: list) -> dict:
+    med_lower = medication.lower()
+    purpose = "Therapeutic treatment for cardiorespiratory or metabolic recovery."
+    if "lisinopril" in med_lower:
+        purpose = "Angiotensin-Converting Enzyme (ACE) Inhibitor used to treat hypertension (high blood pressure) and protect renal function."
+    elif "lipitor" in med_lower:
+        purpose = "HMG-CoA Reductase Inhibitor (Statin) used to lower LDL cholesterol and mitigate cardiovascular event risk."
+    elif "penicillin" in med_lower:
+        purpose = "Beta-lactam antibiotic used to treat bacterial infections."
+    elif "oxycodone" in med_lower:
+        purpose = "Opioid analgesic indicated for the management of severe acute pain."
+
+    has_allergy = any(a.lower() in med_lower or med_lower in a.lower() for a in allergies)
+    allergy_status = f"CRITICAL: Patient has a recorded allergy to {allergies} conflicting with this drug class." if has_allergy else "Clear (No allergy conflicts detected)."
+
+    guideline = f"Ensure regular blood work monitoring and patient compliance checks for {medication}."
+    if "lisinopril" in med_lower:
+        guideline = "Monitor serum potassium and renal function (eGFR/Creatinine) within 1-2 weeks of initiation or dose increases."
+    elif "lipitor" in med_lower:
+        guideline = "Monitor lipid panels periodically. Advise patient to report unexplained muscle pain or weakness (rhabdomyolysis risk)."
+    elif "penicillin" in med_lower:
+        guideline = "Advise patient to complete the full course of treatment to prevent antibiotic resistance. Monitor for hypersensitivity reactions."
+    elif "oxycodone" in med_lower:
+        guideline = "Use lowest effective dose for shortest duration. Monitor closely for respiratory depression, sedation, and opioid use disorder (OUD) signs."
+
+    recs = [
+        "Take medication strictly as directed by the prescriber.",
+        "Report any unusual side effects or symptoms immediately."
+    ]
+    if "lisinopril" in med_lower:
+        recs.append("Avoid excessive potassium intake or potassium supplements without physician approval.")
+    elif "lipitor" in med_lower:
+        recs.append("Limit grapefruit juice intake, which can increase systemic exposure of this statin.")
+
+    return {
+        "medication": medication,
+        "patientName": patient_name,
+        "therapeuticPurpose": purpose,
+        "allergyConflictStatus": allergy_status,
+        "clinicalGuidelineCheck": guideline,
+        "recommendations": recs
     }

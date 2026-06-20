@@ -39,8 +39,11 @@ async def get_logs():
             for r in records
         ]
 
+from routers.ai import clear_ai_caches
+
 @app.post("/api/seed")
 async def seed_database():
+    clear_ai_caches()
     async with db.pool.acquire() as conn:
         await conn.execute("TRUNCATE access_logs, consents, prescriptions, patients, lab_reports RESTART IDENTITY CASCADE")
         
